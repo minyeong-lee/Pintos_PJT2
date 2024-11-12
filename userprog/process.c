@@ -203,12 +203,13 @@ process_exec (void *f_name) {
     argument_stack(parse, count, &_if.rsp); // 함수 내부에서 parse와 rsp의 값을 직접 변경하기 위해 주소 전달
     _if.R.rdi = count;
     _if.R.rsi = (char *)_if.rsp + 8;
+	hex_dump(_if.rsp, _if.rsp, KERN_BASE - _if.rsp, true);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
-	if (!success)
-		return -1;
-	hex_dump(_if.rsp, _if.rsp, KERN_BASE - _if.rsp, true);
+	if (!success) {
+		
+	}
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
