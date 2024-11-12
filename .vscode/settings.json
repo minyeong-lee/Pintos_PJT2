@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "vaddr.h": "c",
+        "synch.h": "c"
+    }
+}
