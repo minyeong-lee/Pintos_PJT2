@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "vaddr.h": "c",
-        "synch.h": "c"
+        "synch.h": "c",
+        "palloc.h": "c"
     }
 }
