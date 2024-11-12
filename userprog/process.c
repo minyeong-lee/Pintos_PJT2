@@ -160,34 +160,72 @@ error:
 
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
+/*
+	프로세스가 새로운 사용자 프로그램을 실행하도록 컨텍스트를 전환하는 역할
+	- 현재 프로세스의 실행 컨텍스트를 지우고,
+	  주어진 파일(사용자 프로그램)을 메모리에 로드한 후 실행을 시작함
+
+	- 우리가 입력해주는 명령을 받기 직전에 어떤 스레드가 돌고 있었을 테니(그게 idle이든 실제로 실행 중이든)
+	  process_exec()에 context switching 역할도 같이 넣어줘야 함
+*/
 int
 process_exec (void *f_name) {
-	char *file_name = f_name;
-	bool success;
+	/* 디스크에 있는 사용자 프로그램을 메모리에 올려서 실행하기 위한 요청이 들어오는 상황에 이 함수가 호출됨 */
+
+	/* 초기화 준비 */
+	char *file_name = f_name;  //프로그램 파일의 이름. f_name은 문자열인데 위에서 (void *)로 넘겨받았고, 문자열로 인식하기 위해서 char * 로 변환해줘야 함
+	bool success; //프로그램 로드 성공 여부
+
+	/* --- Project 2: Command_line_parsing ---*/
+	char file_name_copy[128];  //스택에 저장
+	//원본 문자열을 parsing하면 다른 함수에서 원본 문자열을 쓸 여지가 있으므로 복사본 생성
+	memcpy(file_name_copy, file_name, strlen(file_name)+1);  //strlen에 +1을 하는 이유? 원래 문자열에는 \n이 들어가는데, strlen에서는 \n 앞까지만 읽고 끝내기 때문. 전체를 들고오기 위해 +1함
+	/* --- Project 2: Command_line_parsing ---*/
+
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
-	struct intr_frame _if;
-	_if.ds = _if.es = _if.ss = SEL_UDSEG;
-	_if.cs = SEL_UCSEG;
-	_if.eflags = FLAG_IF | FLAG_MBS;
-
+	/* 레지스터 프레임 설정 */
+	struct intr_frame _if; //인터럽트 스택 프레임을 나타내는 구조체 (이 프레임은 사용자 프로그램을 실행할 때 필요한 CPU 레지스터 상태를 저장하는 데 사용됨)
+	_if.ds = _if.es = _if.ss = SEL_UDSEG;  //데이터 세그먼트, 추가 세그먼트, 스택 세그먼트 레지스터를 사용자 데이터 세그먼트(SEL_UDSEG)로 설정함
+	_if.cs = SEL_UCSEG; //코드 세그먼트를 사용자 코드 세그먼트로 설정
+	_if.eflags = FLAG_IF | FLAG_MBS; //인터럽트 플래그와 머신 상태 플래그를 활성화하여, 사용자 프로그램의 실행 환경 설정
+	
+	
 	/* We first kill the current context */
-	process_cleanup ();
+	/* 컨텍스트 정리 */
+	process_cleanup (); 
+	//현재 프로세스의 기존 컨텍스트 정리하여, 새로운 프로그램을 실행할 준비를 함 (ex. 기존 메모리, 파일 디스크립터 등을 해제) => 현재 스레드의 이전 실행 상태 지우기 위함
+	//새로운 실행 파일을 현재 스레드에 담기 전에 먼저 현재 process에 담긴 context를 지워준다
+	//지운다? => 현재 프로세스에 할당된 page directory를 지운다는 뜻
 
 	/* And then load the binary */
-	success = load (file_name, &_if);
+	/* 프로그램 로드 */
+	success = load (file_name, &_if); //주어진 프로그램(file_name)을 메모리에 로드하여 _if 프레임에 초기화함. 성공 여부가 success에 저장됨
+	//load 함수로 프로그램을 메모리에 로드하면, _if에 실행 시작 지점(엔트리 포인트)이 설정됨
+	//success는 bool type이니까 load에 성공하면 1, 실패하면 0 반환
+	
 
 	/* If load failed, quit. */
-	palloc_free_page (file_name);
+	/* 할당 해제 및 성공 확인 */
+	palloc_free_page (file_name); //file_name이 할당받은 페이지를 해제함. 메모리 누수 방지를 위해서임 (프로그램 로드가 실패한 경우에만 메모리 해제함)
+	//file_name은 프로그램 파일 받기 위해 만든 임시변수로, load 끝나면 메모리 반환
 	if (!success)
-		return -1;
+		return -1; //만약 프로그램 로드 실패하면 -1 반환하여 오류 알림
+	//성공 여부에 따라 함수를 종료할지, 다음 단계로 진행할지 결정함
 
 	/* Start switched process. */
-	do_iret (&_if);
-	NOT_REACHED ();
+	/* 프로그램 실행 전환 */
+	//모든 설정이 완료된 후
+	do_iret (&_if); //do_iret()함수 호출하여 _if에 저장된 레지스터 상태로 전환하고, 사용자 프로그램의 실행을 시작함 (설정된 _if 상태로 사용자 모드에서 프로그램 실행을 시작)
+	NOT_REACHED (); //이 위치에는 프로그램이 도달하지 않아야 함. 만약 도달한다면, 논리 오류 발생했음을 의미함
+
+	//do_iret은 커널 모드에서 사용자 모드로 전환하는 기능으로, _if에 설정된 레지스터 상태에 따라 실제 프로그램이 사용자 모드에서 실행됨
 }
+// 이 함수는 새로운 사용자 프로그램을 로드하고 실행하는 함수임
+// 기존의 프로세스 상태를 정리한 후, 주어진 프로그램을 사용자 모드에서 실행할 수 있도록 설정
+
 
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -320,86 +358,96 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * Stores the executable's entry point into *RIP
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
+/*
+	load 함수는 ELF 형식의 실행 파일을 현재 스레드에 로드하고, 프로그램의 엔트리 포인트와 스택을 설정함
+*/
 static bool
-load (const char *file_name, struct intr_frame *if_) {
-	struct thread *t = thread_current ();
-	struct ELF ehdr;
-	struct file *file = NULL;
-	off_t file_ofs;
-	bool success = false;
-	int i;
+load (const char *file_name, struct intr_frame *if_) {  //if_는 프로그램 실행 시 사용할 초기 인터럽트 프레임 
+	/* 필요한 변수 선언 */
+	struct thread *t = thread_current (); //현재 실행 중인 스레드의 포인터를 t에 저장 (이 스레드에 프로그램이 로드됨)
+	struct ELF ehdr; //ELF 헤더 선언
+	struct file *file = NULL; //파일 포인터 선언
+	off_t file_ofs; //파일 오프셋 선언
+	bool success = false; //성공 여부
+	int i; //반복문 변수 선언
 
 	/* Allocate and activate page directory. */
-	t->pml4 = pml4_create ();
-	if (t->pml4 == NULL)
+	/* 페이지 테이블 생성 및 활성화 */
+	t->pml4 = pml4_create (); //새로운 페이지 테이블 생성하여 t->pml4에 할당
+	if (t->pml4 == NULL)  //실패 시 done 레이블로 이동하여 함수가 종료됨
 		goto done;
-	process_activate (thread_current ());
+	process_activate (thread_current ()); //생성된 페이지 테이블을 활성화하여 메모리 맵을 설정
 
 	/* Open executable file. */
-	file = filesys_open (file_name);
-	if (file == NULL) {
+	/* 사용자 프로그램 파일 열기 */
+	file = filesys_open (file_name); //file_name을 열고
+	if (file == NULL) { //실패 시 오류 메시지 출력하고 done 레이블로 이동하여 함수 종료
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
 	/* Read and verify executable header. */
-	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
+	/* ELF 헤더 읽고 검증 */
+	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr 
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
 			|| ehdr.e_type != 2
 			|| ehdr.e_machine != 0x3E // amd64
 			|| ehdr.e_version != 1
 			|| ehdr.e_phentsize != sizeof (struct Phdr)
-			|| ehdr.e_phnum > 1024) {
-		printf ("load: %s: error loading executable\n", file_name);
+			|| ehdr.e_phnum > 1024) { // 파일에서 ELF 헤더를 읽고, ELF 파일인지와 헤더가 유효한지 확인
+		printf ("load: %s: error loading executable\n", file_name); //조건이 하나라도 만족되지 않으면 오류 메시지 출력하고 done으로 이동
 		goto done;
 	}
 
 	/* Read program headers. */
-	file_ofs = ehdr.e_phoff;
-	for (i = 0; i < ehdr.e_phnum; i++) {
+	/* 프로그램 헤더 테이블 읽기 */
+	file_ofs = ehdr.e_phoff; //프로그램 헤더 오프셋을 file_ofs에 설정
+	for (i = 0; i < ehdr.e_phnum; i++) { //프로그램 헤더의 개수(ehdr.e_phnum)만큼 반복하여 각 프로그램 헤더를 읽기
 		struct Phdr phdr;
 
-		if (file_ofs < 0 || file_ofs > file_length (file))
+		if (file_ofs < 0 || file_ofs > file_length (file)) //파일 오프셋이 유효한지 확인한 후,
 			goto done;
-		file_seek (file, file_ofs);
+		file_seek (file, file_ofs); //프로그램 헤더의 위치로 파일 포인터를 이동
 
-		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
-			goto done;
-		file_ofs += sizeof phdr;
-		switch (phdr.p_type) {
+		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr) //프로그램 헤더를 읽고, 읽기에 실패하면
+			goto done; //done으로 이동
+		file_ofs += sizeof phdr; //이후 오프셋을 다음 프로그램 헤더 위치로 이동
+		switch (phdr.p_type) { //프로그램 헤더의 p_type에 따라 처리를 다르게 함
 			case PT_NULL:
 			case PT_NOTE:
 			case PT_PHDR:
 			case PT_STACK:
 			default:
-				/* Ignore this segment. */
+				/* Ignore this segment. */ //무시
 				break;
 			case PT_DYNAMIC:
 			case PT_INTERP:
 			case PT_SHLIB:
-				goto done;
-			case PT_LOAD:
-				if (validate_segment (&phdr, file)) {
-					bool writable = (phdr.p_flags & PF_W) != 0;
-					uint64_t file_page = phdr.p_offset & ~PGMASK;
-					uint64_t mem_page = phdr.p_vaddr & ~PGMASK;
-					uint64_t page_offset = phdr.p_vaddr & PGMASK;
+				goto done; //PT_DYNAMIC, PT_INTERP 등은 ELF 로더에서 지원하지 않으므로 done으로 이동
+			case PT_LOAD: //PT_LOAD 유형의 세그먼트가 유효한지 검사
+				if (validate_segment (&phdr, file)) { //유효하면 메모리에 로드하는 설정 시작!!
+					bool writable = (phdr.p_flags & PF_W) != 0; //writable은 해당 세그먼트가 쓰기 가능한지 나타냄
+					uint64_t file_page = phdr.p_offset & ~PGMASK; //file_page는 파일에서 읽어올 페이지 위치
+					uint64_t mem_page = phdr.p_vaddr & ~PGMASK; //mem_page는 메모리에서 세그먼트 시작 주소
+					uint64_t page_offset = phdr.p_vaddr & PGMASK; //page_offset은 페이지 오프셋
 					uint32_t read_bytes, zero_bytes;
-					if (phdr.p_filesz > 0) {
+					if (phdr.p_filesz > 0) { //세그먼트의 파일 크기가 0보다 크면
 						/* Normal segment.
 						 * Read initial part from disk and zero the rest. */
-						read_bytes = page_offset + phdr.p_filesz;
-						zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE)
+						read_bytes = page_offset + phdr.p_filesz; //read_bytes에 읽을 바이트 수 저장
+						zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE) //나머지는 0으로 채움
 								- read_bytes);
-					} else {
+					} else { //세그먼트의 파일 크기가 0이면 모든 바이트를 0으로 설정
 						/* Entirely zero.
 						 * Don't read anything from disk. */
 						read_bytes = 0;
 						zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 					}
+					/* 파일 세그먼트 로드 */
+					//프로그램 헤더가 유효하면
 					if (!load_segment (file, file_page, (void *) mem_page,
-								read_bytes, zero_bytes, writable))
-						goto done;
+								read_bytes, zero_bytes, writable)) //load_segment 함수를 호출해 파일의 특정 세그먼트를 메모리에 로드함 => 이때 파일 오프셋, 메모리 주소, 메모리 주소, 읽을 바이트 수 등을 계산하여 디스크에서 메모리로 복사
+						goto done; //실패 시 done으로 이동
 				}
 				else
 					goto done;
@@ -408,22 +456,36 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 
 	/* Set up stack. */
-	if (!setup_stack (if_))
-		goto done;
+	if (!setup_stack (if_)) //프로그램의 유저 스택 설정
+		goto done; //실패 시 done으로 이동
 
 	/* Start address. */
-	if_->rip = ehdr.e_entry;
+	if_->rip = ehdr.e_entry; //인터럽트 프레임의 rip를 실행 시작 지점(엔트리 포인트)으로 설정
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	/* 커맨드 라인에서의 명렁어 실행 */
+	//첫 번째 단어는 프로그램 이름, 그 다음부터 첫 번째 인자, 두 번째 인자가 옴
 
-	success = true;
+
+
+
+
+
+
+
+
+	success = true; //프로그램 로드가 성공했음을 나타내기 위해 success를 true로 설정
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
-	return success;
+	file_close (file); //파일 닫고
+	return success; //로드 성공 여부 반환
 }
+/*
+load 함수는 실제로 디스크에서 사용자 프로그램을 읽어서 스레드의 주소 공간(메모리)에 로드하는 작업을 수행함
+=> 이렇게 함으로써, 스레드는 프로그램의 코드와 데이터를 메모리에서 사용할 수 있게 되고, 이후 사용자 모드에서 프로그램이 실행될 수 있다
+*/
 
 
 /* Checks whether PHDR describes a valid, loadable segment in
