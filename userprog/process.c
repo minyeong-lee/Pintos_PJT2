@@ -360,9 +360,11 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * Returns true if successful, false otherwise. */
 /*
 	load 함수는 ELF 형식의 실행 파일을 현재 스레드에 로드하고, 프로그램의 엔트리 포인트와 스택을 설정함
+	(실행 파일의 file name을 적재해 실행하는 함수)
 */
 static bool
 load (const char *file_name, struct intr_frame *if_) {  //if_는 프로그램 실행 시 사용할 초기 인터럽트 프레임 
+	//load()를 부른 caller인 process_exec()에서 입력한 커맨드 전체가 file_name 인자로 넘어옴
 	/* 필요한 변수 선언 */
 	struct thread *t = thread_current (); //현재 실행 중인 스레드의 포인터를 t에 저장 (이 스레드에 프로그램이 로드됨)
 	struct ELF ehdr; //ELF 헤더 선언
@@ -370,6 +372,22 @@ load (const char *file_name, struct intr_frame *if_) {  //if_는 프로그램 �
 	off_t file_ofs; //파일 오프셋 선언
 	bool success = false; //성공 여부
 	int i; //반복문 변수 선언
+
+	/* --- Project 2: Command_line_parsing ---*/
+	char *arg_list[128];
+	char *token, *save_ptr;  //둘다 문자열 자르기 함수인 strtok_r()에서 쓰기 위한 변수
+	int token_count = 0;
+
+	token = strtok_r(file_name, " ", &save_ptr);  //지정된 문자를 기준으로 문자열을 자르는 함수
+	arg_list[token_count] = token;  //arg_list[0] = file_name_first
+
+	while (token != NULL) {
+		token = strtok_r (NULL, " ", &save_ptr);
+		token_count++;
+		arg_list[token_count] = token;
+	}
+	/* --- Project 2: Command_line_parsing ---*/
+
 
 	/* Allocate and activate page directory. */
 	/* 페이지 테이블 생성 및 활성화 */
