@@ -186,7 +186,7 @@ process_exec (void *f_name) {
 	char *token, *save_ptr;
 	int count = 0;
 
-	token = strok_r(file_name, " ", &save_ptr);
+	token = strtok_r(file_name, " ", &save_ptr);
 
 	while (token != NULL) {
 		parse[count++] = token;
