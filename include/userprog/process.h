@@ -13,4 +13,14 @@ void process_activate (struct thread *next);
 void argument_stack(char **parse, int count, void **rsp);
 
 
+
+
+#define STDIN 1
+#define STDOUT 2
+#define STDERR 3
+
+
+
+
+
 #endif /* userprog/process.h */
