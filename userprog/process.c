@@ -308,8 +308,12 @@ process_exit (void)
 {
 	struct thread *curr = thread_current ();  // 현재 실행 중인 스레드를 가져옵니다.
 
-	/* TODO: 여기서 프로세스 종료 메시지를 구현해야 합니다.
-	 * 프로젝트2의 문서에 따라 종료 메시지를 출력하도록 합니다. */
+
+	/* #Project 2: Process Termination Messages */
+	if (address_check() != -1) {
+    	printf("%s: exit(%d)\n", curr->name, curr->exit_status);
+	}
+
 	
 	/* TODO: 프로세스 자원 정리 작업을 이곳에 구현해야 합니다. */
 	process_cleanup ();  // 프로세스와 관련된 자원 정리를 수행합니다.

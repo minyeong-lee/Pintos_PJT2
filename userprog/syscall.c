@@ -39,7 +39,8 @@ void syscall_handler (struct intr_frame *);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 void
-syscall_init (void) {
+syscall_init (void)
+{
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -55,7 +56,8 @@ syscall_init (void) {
 }
 
 
-void check_address(void *addr) {
+void check_address(void *addr)
+{
     if (is_kernel_vaddr(addr) || addr == NULL || pml4_get_page(thread_current()->pml4, addr) == NULL)
         exit(-1);
 }
@@ -120,20 +122,23 @@ void syscall_handler(struct intr_frame *f UNUSED) {
 }
 
 
-
-void halt(void) {
+void halt(void)
+{
     power_off();
 }
 
-void exit(int status) {
+
+void exit(int status)
+{
     struct thread *curr = thread_current();
     curr->exit_status = status;
 
-    /** #Project 2: Process Termination Messages */
+    /* #Project 2: Process Termination Messages */
     printf("%s: exit(%d)\n", curr->name, curr->exit_status);
 
     thread_exit();
 }
+
 
 // pid_t fork(const char *thread_name) {
 //     check_address(thread_name);
@@ -141,7 +146,9 @@ void exit(int status) {
 //     return process_fork(thread_name, NULL);
 // }
 
-int exec(const char *cmd_line) {
+
+int exec(const char *cmd_line)
+{
     check_address(cmd_line);
 
     off_t size = strlen(cmd_line) + 1;
@@ -158,21 +165,28 @@ int exec(const char *cmd_line) {
     return 0;  // process_exec 성공시 리턴 값 없음 (do_iret)
 }
 
-int wait(pid_t tid) {
+
+int wait(pid_t tid)
+{
     return process_wait(tid);
 }
 
-bool create(const char *file, unsigned initial_size) {
+
+bool create(const char *file, unsigned initial_size)
+{
     check_address(file);
 
     return filesys_create(file, initial_size);
 }
 
-bool remove(const char *file) {
+
+bool remove(const char *file)
+{
     check_address(file);
 
     return filesys_remove(file);
 }
+
 
 int open(const char *file) {
     check_address(file);
@@ -269,7 +283,9 @@ int write(int fd, const void *buffer, unsigned length) {
     return bytes;
 }
 
-void seek(int fd, unsigned position) {
+
+void seek(int fd, unsigned position)
+{
     if (fd < 0)
         return;
 
@@ -281,7 +297,9 @@ void seek(int fd, unsigned position) {
     file_seek(file, position);
 }
 
-int tell(int fd) {
+
+int tell(int fd)
+{
     struct file *file = process_get_file(fd);
 
     if (file == NULL || (file >= STDIN && file <= STDERR))
@@ -290,7 +308,9 @@ int tell(int fd) {
     return file_tell(file);
 }
 
-void close(int fd) {
+
+void close(int fd)
+{
     struct thread *curr = thread_current();
     struct file *file = process_get_file(fd);
 
