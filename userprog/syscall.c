@@ -53,30 +53,30 @@ syscall_handler (struct intr_frame *f UNUSED) {  //
 		5번째 인자: %r8
 		6번째 인자: %r9	
 	*/
-	switch(sys_number) {
-		case SYS_HALT:
-			halt();
-		case SYS_EXIT:
-			exit(f->R.rdi);
-		case SYS_FORK:
-			fork(f->R.rdi);
-		case SYS_EXEC:
-			exec(f->R.rdi);
-		case SYS_WAIT:
-			wait(f->R.rdi);
-		case SYS_CREATE:
-			create(f->R.rdi, f->R.rsi);
-		case SYS_REMOVE:
-			remove(f->R.rdi);
-		case SYS_OPEN:
-			open(f->R.rdi);
-		case SYS_FILESIZE:
-			filesize(f->R.rdi);
-		case SYS_READ:
-			read(f->R.rdi, f->R.rsi, f->R.rdx);
+	// switch(sys_number) {
+	// 	case SYS_HALT:
+	// 		halt();
+	// 	case SYS_EXIT:
+	// 		exit(f->R.rdi);
+	// 	case SYS_FORK:
+	// 		fork(f->R.rdi);
+	// 	case SYS_EXEC:
+	// 		exec(f->R.rdi);
+	// 	case SYS_WAIT:
+	// 		wait(f->R.rdi);
+	// 	case SYS_CREATE:
+	// 		create(f->R.rdi, f->R.rsi);
+	// 	case SYS_REMOVE:
+	// 		remove(f->R.rdi);
+	// 	case SYS_OPEN:
+	// 		open(f->R.rdi);
+	// 	case SYS_FILESIZE:
+	// 		filesize(f->R.rdi);
+	// 	case SYS_READ:
+	// 		read(f->R.rdi, f->R.rsi, f->R.rdx);
 		
 			
-	}
+	// }
 
 
 
@@ -88,15 +88,15 @@ syscall_handler (struct intr_frame *f UNUSED) {  //
 /* --- Project 2: User_Memory_Access ---*/
 void
 check_address (void *addr) {
-	struct thread *t = thread_current()
+	struct thread *t = thread_current();
 	// if (!is_user_vaddr(addr)||addr == NULL)
 	// -> 이 경우는 유저 주소 영역 내에서도 할당되지 않는 공간 가리키는 것을 체크하지 않음
 	// 그래서 pml4_get_page 를 추가해줘야!
-	if (!is_user_vaddr(addr)||addr == NULL||
-	pml4_get_page(t->pml4, addr)==NULL)
-	{
-		exit(-1);
-	}
+	// if (!is_user_vaddr(addr)||addr == NULL||
+	// pml4_get_page(t->pml4, addr)==NULL)
+	// {
+	// 	exit(-1);
+	// }
 }
 /* 해당 주소값이 유저 가상 주소(user_vaddr)에 해당하는지 아닌지 체크하고
    유저 영역이 아니면 종료한다

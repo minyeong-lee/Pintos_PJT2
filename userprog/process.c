@@ -200,6 +200,12 @@ process_exec (void *f_name) {
 	//새로운 실행 파일을 현재 스레드에 담기 전에 먼저 현재 process에 담긴 context를 지워준다
 	//지운다? => 현재 프로세스에 할당된 page directory를 지운다는 뜻
 
+
+	/* --- Project 2: Command_line_parsing ---*/
+	memset(&_if, 0, sizeof _if);
+	/* --- Project 2: Command_line_parsing ---*/
+
+
 	/* And then load the binary */
 	/* 프로그램 로드 */
 	success = load (file_name, &_if); //주어진 프로그램(file_name)을 메모리에 로드하여 _if 프레임에 초기화함. 성공 여부가 success에 저장됨
@@ -209,11 +215,15 @@ process_exec (void *f_name) {
 
 	/* If load failed, quit. */
 	/* 할당 해제 및 성공 확인 */
-	palloc_free_page (file_name); //file_name이 할당받은 페이지를 해제함. 메모리 누수 방지를 위해서임 (프로그램 로드가 실패한 경우에만 메모리 해제함)
+	//palloc_free_page (file_name); //file_name이 할당받은 페이지를 해제함. 메모리 누수 방지를 위해서임 (프로그램 로드가 실패한 경우에만 메모리 해제함)
 	//file_name은 프로그램 파일 받기 위해 만든 임시변수로, load 끝나면 메모리 반환
 	if (!success)
 		return -1; //만약 프로그램 로드 실패하면 -1 반환하여 오류 알림
 	//성공 여부에 따라 함수를 종료할지, 다음 단계로 진행할지 결정함
+
+	// hex_dump(_if.rsp, _if.rsp, KERN_BASE - _if.rsp, true);
+	/* --- Project 2: Command_line_parsing ---*/
+
 
 	/* Start switched process. */
 	/* 프로그램 실행 전환 */
@@ -302,6 +312,10 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+
+	/* --- Project 2: Command_line_parsing ---*/
+	while (1){}
+	/* --- Project 2: Command_line_parsing ---*/
 	return -1;
 }
 
