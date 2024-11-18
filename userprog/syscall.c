@@ -89,14 +89,14 @@ syscall_handler (struct intr_frame *f UNUSED) {  //
 void
 check_address (void *addr) {
 	struct thread *t = thread_current();
-	// if (!is_user_vaddr(addr)||addr == NULL)
+	if (!is_user_vaddr(addr)||addr == NULL)
 	// -> 이 경우는 유저 주소 영역 내에서도 할당되지 않는 공간 가리키는 것을 체크하지 않음
 	// 그래서 pml4_get_page 를 추가해줘야!
-	// if (!is_user_vaddr(addr)||addr == NULL||
-	// pml4_get_page(t->pml4, addr)==NULL)
-	// {
-	// 	exit(-1);
-	// }
+	if (!is_user_vaddr(addr)||addr == NULL||
+	pml4_get_page(t->pml4, addr) == NULL)
+	{
+		exit(-1);
+	}
 }
 /* 해당 주소값이 유저 가상 주소(user_vaddr)에 해당하는지 아닌지 체크하고
    유저 영역이 아니면 종료한다
@@ -104,5 +104,4 @@ check_address (void *addr) {
    - pml4_get_page()는 유저 가상 주소와 대응하는 물리 주소를 확인해서 해당 물리 주소와 연결된 커널 가상 주소를 반환하거나
      만약 해당 물리 주소가 가상 주소와 매핑되지 않은 영역이면 NULL 반환
 */
-
 /* --- Project 2: User_Memory_Access ---*/

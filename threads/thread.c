@@ -326,6 +326,7 @@ thread_exit (void) {
    may be scheduled again immediately at the scheduler's whim. */
 void
 thread_yield (void) {
+
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
@@ -473,8 +474,12 @@ thread_test_preemption (void) {
 	if (!list_empty (&ready_list) &&
 	thread_current ()->priority <
 	list_entry (list_front (&ready_list), struct thread, elem)->priority)
-		thread_yield ();
 	// current thread 의 priority 가 ready list 가장 앞 thread 보다 낮으면, current thread yield 하고, ready list 맨 앞 thread running 으로
+
+	if (intr_context())
+            intr_yield_on_return();
+        else
+            thread_yield();
 }
 
 
