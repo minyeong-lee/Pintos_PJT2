@@ -61,7 +61,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
     case SYS_OPEN:
         // f->R.rax = open(f.R.rdi);
         break;
-    
+    case SYS_EXIT:
+        exit(f->R.rdi);
+        break;
     default:
         break;
     }
