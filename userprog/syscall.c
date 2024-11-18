@@ -7,6 +7,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "threads/init.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -112,14 +113,18 @@ check_address (void *addr) {
 
 
 /* --- Project 3: System Calls ---*/
+/* 종료 */
 void
 halt () {
-
+	power_off();
 }
 
 void
 exit (int status) {
-
+	struct thread * thread = NULL;
+	thread = thread_current();
+	char * t_name = thread->name;
+	printf("%s: exit(%d)",t_name, status);
 }
 
 pid_t
@@ -129,8 +134,9 @@ fork (const char *thread_name) {
 
 int
 exec (const char *cmd_line) {
-
+	
 }
+
 
 int
 wait (pid_t pid) {
