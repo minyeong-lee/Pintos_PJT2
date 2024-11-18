@@ -5,12 +5,17 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "intrinsic.h"
+/* ------ Project 2 ------ */
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
+/* ------------------ Project 2 ------------------ */
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+static bool put_user (uint8_t *udst, uint8_t byte);
+static int64_t get_user (const uint8_t *uaddr);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -134,7 +139,7 @@ page_fault (struct intr_frame *f) {
 	   be assured of reading CR2 before it changed). */
 	intr_enable ();
 
-
+  exit(-1);                       //* exit
 	/* Determine cause. */
 	not_present = (f->error_code & PF_P) == 0;
 	write = (f->error_code & PF_W) != 0;
@@ -158,3 +163,32 @@ page_fault (struct intr_frame *f) {
 	kill (f);
 }
 
+//! ------------------------------ Project 2 ------------------------------ !//
+/* Reads a byte at user virtual address UADDR.
+ * UADDR must be below KERN_BASE.
+ * Returns the byte value if successful, -1 if a segfault
+ * occurred. */
+static int64_t
+get_user (const uint8_t *uaddr) {
+  int64_t result;
+  __asm __volatile (
+  "movabsq $done_get, %0\n"
+    "movzbq %1, %0\n"
+    "done_get:\n"
+    : "=&a" (result) : "m" (*uaddr));
+  return result;
+}
+
+/* Writes BYTE to user address UDST.
+ * UDST must be below KERN_BASE.
+ * Returns true if successful, false if a segfault occurred. */
+static bool
+put_user (uint8_t *udst, uint8_t byte) {
+  int64_t error_code;
+  __asm __volatile (
+  "movabsq $done_put, %0\n"
+    "movb %b2, %1\n"
+    "done_put:\n"
+    : "=&a" (error_code), "=m" (*udst) : "q" (byte));
+  return error_code != -1;
+}

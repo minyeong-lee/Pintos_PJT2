@@ -70,35 +70,43 @@ timer_calibrate (void) {
 	printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
 }
 
-/* Returns the number of timer ticks since the OS booted. */
+//! 타이머 틱스 : OS 부팅 이후의 타이머 틱 수를 반환
 int64_t
 timer_ticks (void) {
-	enum intr_level old_level = intr_disable ();
-	int64_t t = ticks;
-	intr_set_level (old_level);
-	barrier ();
+	enum intr_level old_level = intr_disable ();      //* 인터럽트 OFF
+	int64_t t = ticks;                    //* t = ticks 이고, t를 반환함. ticks = time_sleep 함수에서 중단하고싶은 틱 수
+
+	intr_set_level (old_level);           //* 인터럽트 ON 
+	barrier ();                           //* 컴파일러가 순서를 수정하지 못하도록함 ( 인터럽트 온오프 )
 	return t;
 }
 
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
+//! 타이머 일랩스트 : elapsed = 시간이 경과하다.
 int64_t
-timer_elapsed (int64_t then) {
-	return timer_ticks () - then;
+timer_elapsed (int64_t then) {    //* then = timer_sleep이 호출된 틱 (시작 시간)
+	return timer_ticks () - then;   //* timer_ticks() = 현재 틱 (현재 시간), 즉 현재 시간으로부터 경과한 시간을 리턴
 }
 
-/* Suspends execution for approximately TICKS timer ticks. */
+//! 타이머 슬립 : 호출 스레드의 실행을 ticks 이 지날 때까지 중단, 실시간으로 작동하는 스레드에 유용함
 void
 timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
+//*********** 의사 코드 ***********//
+	// int64_t start = timer_ticks ();
+  // //* ASSERT : 주어진 조건이 참이어야 함을 보장함. 거짓일 경우 ASSERT는 프로그램을 중단하고 오류 메세지를 출력
+	// ASSERT (intr_get_level () == INTR_ON); //* 인터럽트가 현재 활성화 상태인지 확인
+	// while (timer_elapsed (start) < ticks)  //* 경과한 시간(elapse)이 ticks 보다 짧으면, thread_yield()를 계속 호춣
+	// 	thread_yield ();                      //* yield = 양보, 즉 순서를 계속 양보함
+//*********** end ***********//
 
-	// ASSERT (intr_get_level () == INTR_ON);
-	// while (timer_elapsed (start) < ticks)
-		// thread_yield ();
+  ASSERT (intr_get_level () == INTR_ON);
 
+  struct thread *now_t = thread_current (); 
 
-	// 스레드 block 상태로 전환
-	thread_sleep (start + ticks);
+  int64_t start = timer_ticks ();             
+  if (timer_elapsed (start) < ticks)       // time_sleep 최초 호출틱 - timer_elapsed 호출틱이 인자의 ticks보다 짧으면
+    thread_sleep (start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -124,46 +132,28 @@ void
 timer_print_stats (void) {
 	printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
 
 /* Timer interrupt handler. */
-// static void
-// timer_interrupt (struct intr_frame *args UNUSED) {
-// 	ticks++;
-// 	thread_tick ();
-
-// 	if (thread_mlfqs) {
-// 		mlfqs_increment_recent_cpu ();
-// 		if (ticks % 4 == 0) {
-// 			mlfqs_recalculate_priority ();
-// 			if (ticks % TIMER_FREQ == 0) {
-// 				mlfqs_recalculate_recent_cpu ();
-// 				mlfqs_calculate_load_avg ();
-// 			}
-// 		}
-// 	}
-
-// 	thread_awake (ticks);
-// }
-
-/* Timer interrupt handler. */
+//! 타이머 인터럽트 핸들러 : 스레드와 커널의 ticks를 매 틱마다 증가시킴
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-    ticks++;
-    thread_tick();
+  ticks++;
+	thread_tick ();
 
-	if (thread_mlfqs) {
-		mlfqs_increment_recent_cpu ();
-		if (ticks % 4 == 0) {
-			mlfqs_recalculate_priority ();
-			if (ticks % TIMER_FREQ == 0) {
-				mlfqs_recalculate_recent_cpu ();
-				mlfqs_calculate_load_avg ();
-			}
-		}
-	}
-	
-    thread_awake(ticks);
+  if (thread_mlfqs) {
+    if (strcmp(thread_current ()->name, "idle"))
+      thread_current ()->recent_cpu += (1<<14);
+
+    if (timer_ticks () % TIMER_FREQ == 0) {
+      thread_calc_load_avg ();                      //* 전역변수인 load_avg 갱신 필요
+      thread_calc_recent_cpu ();                    //* 모든 스레드의 recent_cpu 갱신 필요
+    }
+    
+    if (timer_ticks () % 4 == 0)
+      thread_calc_priority ();                      //* 모든 스레드의 우선순위 갱신
+  }
+
+  thread_wakeup (ticks);                            // ticks 마다, 스레드를 확인하여 깨울 스레드가 존재하는 지 확인
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

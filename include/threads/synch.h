@@ -10,11 +10,14 @@ struct semaphore {
 	struct list waiters;        /* List of waiting threads. */
 };
 
+#define depth_max 8
+
 void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
+bool cmp_priority_sema (struct list_elem *a, struct list_elem *b, void *aux); //* 세마 elem 안의 sema 간 우선순위 비교
 
 /* Lock. */
 struct lock {
@@ -26,6 +29,9 @@ void lock_init (struct lock *);
 void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
+void donate_priority (struct lock *lock);
+void release_donation (struct lock *lock);
+void nest_donate (struct thread *curr, struct lock *lock, int depth);
 bool lock_held_by_current_thread (const struct lock *);
 
 /* Condition variable. */
@@ -37,11 +43,6 @@ void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
-
-
-bool sema_compare_priority (const struct list_elem *l, const struct list_elem *s, void *aux);
-
-
 
 /* Optimization barrier.
  *

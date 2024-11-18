@@ -1,17 +1,11 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
-#define NICE_DEFAULT 0
-#define RECENT_CPU_DEFAULT 0
-#define LOAD_AVG_DEFAULT 0
-
-#define FDT_PAGES 2
-#define FDT_COUNT_LIMIT 128
-
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -34,6 +28,10 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+/* --- Project 2 : System call --- */
+#define FDT_PAGES 5
+#define FD_COUNT_LIMIT FDT_PAGES *(1<<9)
 
 /* A kernel thread or user process.
  *
@@ -95,36 +93,46 @@ typedef int tid_t;
 struct thread {
 	/* Owned by thread.c. */
 	tid_t tid;                          /* Thread identifier. */
-	enum thread_status status;          /* Thread state. */
-	char name[16];                      /* Name (for debugging purposes). */
-	int priority;                       /* Priority. */
-
-	int init_priority;
-
-	int nice;
-	int recent_cpu;
-
-	int64_t wakeup;
-
-	struct lock *wait_on_lock;			// 얻기 위해 기다리고 있는 lock list
-	struct list donations;				// priority 나눠준 스레드 list
-	struct list_elem donation_elem;		// 위의 스레드 list 관리하기 위한 element
-
-    struct list_elem allelem;			// 모든 스레드를 추적하기 위한 리스트 요소
-
-	struct file **fdt;
-	int next_fd;
+  enum thread_status status;          /* Thread state. */
+  char name[16];                      /* Name (for debugging purposes). */
+  int priority;                       /* Priority. */
+  int origin_priority;                //* 본래 priority
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+  struct list_elem a_elem;            //* MLFQS
+  int64_t waken_ticks;
+
+  struct lock *wait_on_lock;          //* 내가 기다리고 있는 lock (nest 처리를 위해)
+  struct list donations;              //* 기부자 리스트, 헤드는 우선순위가 가장 낮은 스레드. d_elem으로 이어져 있음
+  struct list_elem d_elem;            //* 기부자 스레드 안에 삽입됨
+
+  int recent_cpu;                     //* 내가 최근에 cpu를 점유한 틱
+  int nice;                           //* 내가 다른 스레드들에게 얼마나 CPU를 양보했는지 (상대 지수)
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
+
+  /* --- Project 2 : System call --- */
+  int exit_status;                    //* EXIT
+  struct file *runn_file;             //* EXIT
+
+  struct file **fd_table;             //* OPEN
+  int fd_idx;                         //* OPEN
+
+  struct intr_frame parent_if;        //* FORK
+
+  struct list child_list;             //* FORK
+  struct list_elem c_elem;            //* FORK
+
+  struct semaphore load_sema;         //* WAIT
+  struct semaphore wait_sema;         //* WAIT
+  struct semaphore exit_sema;         //* WAIT
 #endif
 #ifdef VM
-	/* Table for whole virtual memory owned by thread. */
-	struct supplemental_page_table spt;
+  /* Table for whole virtual memory owned by thread. */
+  struct supplemental_page_table spt;
 #endif
 
 	/* Owned by thread.c. */
@@ -145,9 +153,12 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+void thread_change (void);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+void thread_sleep(int64_t alarm_ticks);
+void thread_wakeup(int64_t alarm_ticks);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -155,30 +166,21 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void thread_preemption (void);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+bool cmp_priority (struct list_elem *a, struct list_elem *b, void *aux UNUSED);
+bool cmp_priority_donation (struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+void thread_calc_load_avg (void);
+void thread_calc_recent_cpu (void);
+void thread_calc_priority (void);
 
 void do_iret (struct intr_frame *tf);
-
-
-
-void thread_sleep(int64_t ticks);
-void thread_awake(int64_t ticks);
-
-bool thread_compare_priority(struct list_elem *l, struct list_elem *s, void *aux UNUSED);
-void thread_test_preemption(void);
-
-bool thread_compare_donate_priority (const struct list_elem *l, const struct list_elem *s, void *aux UNUSED);
-void donate_priority (void);
-
-void remove_with_lock (struct lock *lock);
-void refresh_priority (void);
-
 
 #endif /* threads/thread.h */
