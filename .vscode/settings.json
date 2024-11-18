@@ -2,6 +2,14 @@
     "files.associations": {
         "vaddr.h": "c",
         "synch.h": "c",
-        "palloc.h": "c"
+        "palloc.h": "c",
+        "thread.h": "c",
+        "debug.h": "c",
+        "intrinsic.h": "c",
+        "mmu.h": "c",
+        "filesys.h": "c",
+        "tss.h": "c",
+        "round.h": "c",
+        "directory.h": "c"
     }
 }
