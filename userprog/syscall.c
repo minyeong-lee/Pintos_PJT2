@@ -1,3 +1,4 @@
+#define USERPROG
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -7,9 +8,11 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "filesys/file.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+void check_address (void *addr);
 
 /* System call.
  *
@@ -25,6 +28,16 @@ void syscall_handler (struct intr_frame *);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 void
+check_address(void *addr) {
+    if(addr != NULL)
+        exit(-1);
+    if(!is_user_vaddr(addr))
+        exit(-1);
+    if (pml4_get_page(thread_current()->pml4, addr) == NULL)
+        exit(-1);
+}
+
+void
 syscall_init (void) {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
@@ -35,6 +48,8 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+
+    lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -42,6 +57,14 @@ void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 	printf ("시스템 콜 호 출 ! system call!\n");
-    printf ("시스템 콜 넘버 ! %d", f->R.rdi);
+    switch (f->R.rdi) {
+    case SYS_OPEN:
+        // f->R.rax = open(f.R.rdi);
+        break;
+    
+    default:
+        break;
+    }
+    printf ("시스템 콜 넘버 ! %d \n", f->R.rdi);
 	thread_exit ();
 }

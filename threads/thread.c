@@ -229,6 +229,10 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->fdt = NULL)
+		return TID_ERROR;
+
 	/* Add to run queue. */
 	thread_unblock (t);
 	thread_test_preemption ();
@@ -672,6 +676,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	// mlfq(multi-level feedback queue) 구현 관련 초기화 항목
 	t->nice = NICE_DEFAULT;
 	t->recent_cpu = RECENT_CPU_DEFAULT;
+
+	t->next_fd = 2;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

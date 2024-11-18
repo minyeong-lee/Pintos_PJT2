@@ -10,6 +10,8 @@
         "filesys.h": "c",
         "tss.h": "c",
         "round.h": "c",
-        "directory.h": "c"
+        "directory.h": "c",
+        "*.inc": "c",
+        "syscall-nr.h": "c"
     }
 }

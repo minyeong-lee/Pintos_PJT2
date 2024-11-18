@@ -5,6 +5,9 @@
 #define RECENT_CPU_DEFAULT 0
 #define LOAD_AVG_DEFAULT 0
 
+#define FDT_PAGES 2
+#define FDT_COUNT_LIMIT 128
+
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -109,6 +112,8 @@ struct thread {
 
     struct list_elem allelem;			// 모든 스레드를 추적하기 위한 리스트 요소
 
+	struct file **fdt;
+	int next_fd;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
