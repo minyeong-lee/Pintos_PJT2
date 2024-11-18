@@ -75,6 +75,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 }
 
 void halt(void) {
+    printf("halt called");
     power_off();
 }
 
