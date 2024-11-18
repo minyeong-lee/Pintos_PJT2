@@ -40,6 +40,7 @@ syscall_init (void) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {  //
+	/* --- Project 3: System Calls ---*/
 	// TODO: Your implementation goes here.
 	/* 사용자 스택에 저장되어 있는 시스템 콜 넘버 가져오기 */
 	int sys_number = f->R.rax;  //rax: 시스템 콜 넘버
@@ -53,34 +54,37 @@ syscall_handler (struct intr_frame *f UNUSED) {  //
 		5번째 인자: %r8
 		6번째 인자: %r9	
 	*/
-	// switch(sys_number) {
-	// 	case SYS_HALT:
-	// 		halt();
-	// 	case SYS_EXIT:
-	// 		exit(f->R.rdi);
-	// 	case SYS_FORK:
-	// 		fork(f->R.rdi);
-	// 	case SYS_EXEC:
-	// 		exec(f->R.rdi);
-	// 	case SYS_WAIT:
-	// 		wait(f->R.rdi);
-	// 	case SYS_CREATE:
-	// 		create(f->R.rdi, f->R.rsi);
-	// 	case SYS_REMOVE:
-	// 		remove(f->R.rdi);
-	// 	case SYS_OPEN:
-	// 		open(f->R.rdi);
-	// 	case SYS_FILESIZE:
-	// 		filesize(f->R.rdi);
-	// 	case SYS_READ:
-	// 		read(f->R.rdi, f->R.rsi, f->R.rdx);
-		
-			
-	// }
-
-
-
-
+	switch(sys_number) {
+		case SYS_HALT:
+			halt();
+		case SYS_EXIT:
+			exit(f->R.rdi);
+		case SYS_FORK:
+			fork(f->R.rdi);
+		case SYS_EXEC:
+			exec(f->R.rdi);
+		case SYS_WAIT:
+			wait(f->R.rdi);
+		case SYS_CREATE:
+			create(f->R.rdi, f->R.rsi);
+		case SYS_REMOVE:
+			remove(f->R.rdi);
+		case SYS_OPEN:
+			open(f->R.rdi);
+		case SYS_FILESIZE:
+			filesize(f->R.rdi);
+		case SYS_READ:
+			read(f->R.rdi, f->R.rsi, f->R.rdx);
+		case SYS_WRITE:
+			write(f->R.rdi, f->R.rsi, f->R.rdx);
+		case SYS_SEEK:
+			seek(f->R.rdi, f->R.rsi);
+		case SYS_TELL:
+			tell(f->R.rdi);
+		case SYS_CLOSE:
+			close(f->R.rdi);		
+	}
+	/* --- Project 3: System Calls ---*/
 	printf ("system call!\n");
 	thread_exit ();
 }
@@ -105,3 +109,76 @@ check_address (void *addr) {
      만약 해당 물리 주소가 가상 주소와 매핑되지 않은 영역이면 NULL 반환
 */
 /* --- Project 2: User_Memory_Access ---*/
+
+
+/* --- Project 3: System Calls ---*/
+void
+halt () {
+
+}
+
+void
+exit (int status) {
+
+}
+
+pid_t
+fork (const char *thread_name) {
+
+}
+
+int
+exec (const char *cmd_line) {
+
+}
+
+int
+wait (pid_t pid) {
+
+}
+
+bool
+create (const char *file, unsigned initial_size) {
+
+}
+
+bool
+remove (const char *file) {
+
+}
+
+int
+open (const char *file) {
+	// int file = filesys_open(file);
+}
+
+int
+filesize (int fd) {
+
+}
+
+int
+read (int fd, void *buffer, unsigned size) {
+
+}
+
+int
+write (int fd, const void *buffer, unsigned size) {
+
+}
+
+void
+seek (int fd, unsigned position) {
+
+}
+
+unsigned
+tell (int fd) {
+
+}
+
+void
+close (int fd) {
+
+}
+/* --- Project 3: System Calls ---*/
