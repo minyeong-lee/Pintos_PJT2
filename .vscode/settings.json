@@ -12,6 +12,8 @@
         "round.h": "c",
         "directory.h": "c",
         "*.inc": "c",
-        "syscall-nr.h": "c"
+        "syscall-nr.h": "c",
+        "syscall.h": "c",
+        "interrupt.h": "c"
     }
 }
