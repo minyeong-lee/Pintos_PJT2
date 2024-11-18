@@ -58,6 +58,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 	printf ("시스템 콜 호 출 ! system call!\n");
     switch (f->R.rdi) {
+    case SYS_HALT:
+        halt();
+        break;
     case SYS_OPEN:
         // f->R.rax = open(f.R.rdi);
         break;
@@ -69,6 +72,10 @@ syscall_handler (struct intr_frame *f UNUSED) {
     }
     printf ("시스템 콜 넘버 ! %d \n", f->R.rdi);
 	thread_exit ();
+}
+
+void halt(void) {
+    power_off();
 }
 
 void exit(int status) {
