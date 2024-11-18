@@ -68,3 +68,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
     printf ("시스템 콜 넘버 ! %d \n", f->R.rdi);
 	thread_exit ();
 }
+
+void exit(int status) {
+    struct thread *curr = thread_current();
+    printf("%s: exit(%d)\n", curr->name, status);
+    thread_exit();
+}
