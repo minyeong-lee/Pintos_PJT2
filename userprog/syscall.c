@@ -1,6 +1,8 @@
 #include "userprog/syscall.h"
+
 #include <stdio.h>
 #include <syscall-nr.h>
+
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/loader.h"
@@ -34,22 +36,20 @@ void syscall_handler (struct intr_frame *);
  * The syscall instruction works by reading the values from the the Model
  * Specific Register (MSR). For the details, see the manual. */
 
-#define MSR_STAR 0xc0000081         /* Segment selector msr */
-#define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
-#define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
+#define MSR_STAR            0xc0000081        /* Segment selector msr */
+#define MSR_LSTAR           0xc0000082        /* Long mode SYSCALL target */
+#define MSR_SYSCALL_MASK    0xc0000084        /* Mask for the eflags */
 
 void
 syscall_init (void)
 {
-	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
-			((uint64_t)SEL_KCSEG) << 32);
+	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
 
 	/* The interrupt service rountine should not serve any interrupts
 	 * until the syscall_entry swaps the userland stack to the kernel
 	 * mode stack. Therefore, we masked the FLAG_FL. */
-	write_msr(MSR_SYSCALL_MASK,
-			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+	write_msr(MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
     /** #Project 2: System Call - read & write 용 lock 초기화 */
     lock_init(&filesys_lock);
@@ -113,9 +113,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_CLOSE:
             close(f->R.rdi);
             break;
-        // case SYS_DUP2:
-            // f->R.rax = dup2(f->R.rdi, f->R.rsi);
-            // break;
+        case SYS_DUP2:
+            f->R.rax = dup2(f->R.rdi, f->R.rsi);
+            break;
         default:
             exit(-1);
     }
@@ -140,11 +140,11 @@ void exit(int status)
 }
 
 
-// pid_t fork(const char *thread_name) {
-//     check_address(thread_name);
+pid_t fork(const char *thread_name) {
+    check_address(thread_name);
 
-//     return process_fork(thread_name, NULL);
-// }
+    return process_fork(thread_name, NULL);
+}
 
 
 int exec(const char *cmd_line)
@@ -188,7 +188,8 @@ bool remove(const char *file)
 }
 
 
-int open(const char *file) {
+int open(const char *file)
+{
     check_address(file);
     struct file *newfile = filesys_open(file);
 
@@ -203,7 +204,8 @@ int open(const char *file) {
     return fd;
 }
 
-int filesize(int fd) {
+int filesize(int fd)
+{
     struct file *file = process_get_file(fd);
 
     if (file == NULL)
@@ -346,27 +348,27 @@ void close(int fd)
         file->dup_count--;
 }
 
-// /** #Project 2: Extend File Descriptor (Extra) */
-// int dup2(int oldfd, int newfd) {
-//     if (oldfd < 0 || newfd < 0)
-//         return -1;
+/** #Project 2: Extend File Descriptor (Extra) */
+int dup2(int oldfd, int newfd) {
+    if (oldfd < 0 || newfd < 0)
+        return -1;
 
-//     struct file *oldfile = process_get_file(oldfd);
+    struct file *oldfile = process_get_file(oldfd);
 
-//     if (oldfile == NULL)
-//         return -1;
+    if (oldfile == NULL)
+        return -1;
 
-//     if (oldfd == newfd)
-//         return newfd;
+    if (oldfd == newfd)
+        return newfd;
 
-//     struct file *newfile = process_get_file(newfd);
+    struct file *newfile = process_get_file(newfd);
 
-//     if (oldfile == newfile)
-//         return newfd;
+    if (oldfile == newfile)
+        return newfd;
 
-//     close(newfd);
+    close(newfd);
 
-//     newfd = process_insert_file(newfd, oldfile);
+    newfd = process_insert_file(newfd, oldfile);
 
-//     return newfd;
-// }
+    return newfd;
+}

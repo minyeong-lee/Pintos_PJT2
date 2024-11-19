@@ -106,12 +106,26 @@ initd (void *f_name)
 
 이 함수의 목적은 현재 실행중인 프로세스를 복제하여 새로운 스레드(자식 프로세스)를 시작하는 것입니다.
 */
-tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED)
-{
-    /* 부모 스레드를 복제하여 자식 스레드를 생성하는 함수 `thread_create` 호출 */
-    return thread_create (name,    						 // 자식 스레드의 이름
-            PRI_DEFAULT, __do_fork, thread_current ());  // 우선순위와 실행 함수 설정
+tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED) {
+    thread_t *curr = thread_current();
+
+    struct intr_frame *f = (pg_round_up(rrsp()) - sizeof(struct intr_frame));  // 현재 쓰레드의 if_는 페이지 마지막에 붙어있다.
+    memcpy(&curr->parent_if, f, sizeof(struct intr_frame));                    // 1. 부모를 찾기 위해서 2. do_fork에 전달해주기 위해서
+
+    /* 현재 스레드를 새 스레드로 복제합니다.*/
+    tid_t tid = thread_create(name, PRI_DEFAULT, __do_fork, curr);
+
+    if (tid == TID_ERROR)
+        return TID_ERROR;
+
+    thread_t *child = get_child_process(tid);
+
+    sema_down(&child->fork_sema);  // 생성만 해놓고 자식 프로세스가 __do_fork에서 fork_sema를 sema_up 해줄 때까지 대기
+
+    if (child->exit_status == TID_ERROR)
+        return TID_ERROR;
+
+    return tid;  // 부모 프로세스의 리턴값 : 생성한 자식 프로세스의 tid
 }
 
 
@@ -129,23 +143,33 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 
     /* 1. TODO: 만약 부모 페이지가 커널 페이지라면 즉시 반환합니다. */
     // 커널 페이지는 자식 프로세스에 복제할 필요가 없으므로 처리하지 않고 바로 반환합니다.
+	if (is_kernel_vaddr(va))
+        return true;
 
     /* 2. 부모의 페이지 테이블에서 가상 주소(va)를 통해 부모 페이지를 찾아옵니다. */
     parent_page = pml4_get_page (parent->pml4, va);  // 부모의 페이지 테이블에서 가상 주소에 해당하는 페이지를 가져옵니다.
+	if (parent_page == NULL)
+        return false;
 
     /* 3. TODO: 자식 프로세스를 위한 새로운 PAL_USER 페이지를 할당하고, 
      * NEWPAGE 변수에 그 주소를 설정합니다. */
     // 자식 프로세스가 사용할 새로운 사용자 페이지를 할당해야 합니다.
+	newpage = palloc_get_page(PAL_ZERO);
+    if (newpage == NULL)
+        return false;
 
     /* 4. TODO: 부모 페이지를 새로운 페이지로 복제하고,
      * 부모 페이지가 쓰기 가능한지 여부를 확인하여 쓰기 권한을 설정합니다. */
     // 부모 페이지를 자식 페이지로 복제한 후, 부모 페이지가 쓰기 가능한지 확인하고,
     // 자식 페이지가 쓰기 가능한지 여부를 설정합니다.
+	memcpy(newpage, parent_page, PGSIZE);
+    writable = is_writable(pte);
 
     /* 5. 새로운 페이지를 자식 프로세스의 페이지 테이블에 추가합니다. */
     if (!pml4_set_page (current->pml4, va, newpage, writable)) {  // 자식 프로세스의 페이지 테이블에 페이지를 추가합니다.
         /* 6. TODO: 페이지 삽입에 실패한 경우, 오류 처리를 합니다. */
         // 페이지를 자식 프로세스의 페이지 테이블에 삽입하는 데 실패하면 적절한 오류 처리를 해야 합니다.
+		return false;
     }
     return true;  // 페이지 복제 작업이 성공적으로 완료되었음을 반환합니다.
 }
@@ -163,6 +187,9 @@ __do_fork (void *aux)
     struct thread *current = thread_current ();     // 현재 자식 스레드
     struct intr_frame *parent_if;   				// 부모 프로세스의 인터럽트 프레임을 저장할 포인터
     bool succ = true;   							// 성공 여부를 나타내는 변수
+
+	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
+    struct intr_frame *parent_if = &parent->parent_if;
 
     /* 1. 부모 프로세스의 인터럽트 프레임을 자식 스레드로 복사합니다. */
     memcpy (&if_, parent_if, sizeof (struct intr_frame));
@@ -187,6 +214,46 @@ __do_fork (void *aux)
 
     /* TODO: 부모 프로세스의 파일 객체를 복제하는 작업이 추가되어야 합니다. */
     /* 부모 프로세스의 열린 파일, 파일 디스크립터 등을 자식 프로세스에 복제하는 코드를 구현해야 합니다. */
+	if (parent->fd_idx >= FDCOUNT_LIMIT)
+        goto error;
+
+    /** #Project 2: Extend File Descriptor - fd 복제 */
+    struct dict_elem dup_file_dict[DICTLEN];
+    int dup_idx = 0;
+
+	current->fd_idx = parent->fd_idx;  // fdt 및 idx 복제
+    struct file *file;
+    for (int fd = 0; fd < FDCOUNT_LIMIT; fd++) {
+        file = parent->fdt[fd];
+        if (file == NULL)
+            continue;
+
+        bool is_exist = false;
+
+        for (int i = 0; i <= dup_idx; i++) {
+            if (dup_file_dict[i].key == file) {
+                current->fdt[fd] = file_duplicate(file);
+                is_exist = true;
+                break;
+            }
+        }
+
+        if (is_exist)
+            continue;
+
+        if (file > STDERR)
+            current->fdt[fd] = file_duplicate(file);
+        else
+            current->fdt[fd] = file;
+
+        if (dup_idx < DICTLEN) {
+            dup_file_dict[dup_idx].key = file;
+            dup_file_dict[dup_idx++].value = current->fdt[fd];
+        }
+        /** -------------------------------------------------------------- */
+    }
+
+    sema_up(&current->fork_sema);  // fork 프로세스가 정상적으로 완료됐으므로 현재 fork용 sema unblock
 
     process_init ();  // 자식 프로세스에 대한 초기화 작업 수행
 
@@ -194,7 +261,8 @@ __do_fork (void *aux)
     if (succ)
         do_iret (&if_);  // 인터럽트 프레임을 사용해 자식 프로세스로 전환
 error:
-    thread_exit ();  	 // 오류 발생 시, 스레드를 종료
+	sema_up(&current->fork_sema);  // 복제에 실패했으므로 현재 fork용 sema unblock
+    exit(TID_ERROR);
 }
 
 
@@ -203,32 +271,30 @@ int process_exec(void *f_name)
     char *file_name = f_name;
     bool success;
 
-    /* 현재 스레드의 실행 정보(intr_frame)를 설정 */
-    struct intr_frame _if;
-    _if.ds = _if.es = _if.ss = SEL_UDSEG;  	// 사용자 데이터 세그먼트
-    _if.cs = SEL_UCSEG;  					// 사용자 코드 세그먼트
-    _if.eflags = FLAG_IF | FLAG_MBS;  		// 인터럽트 플래그 설정
+  /* 스레드 구조에서는 intr_frame을 사용할 수 없습니다.
+     * 현재 쓰레드가 재스케줄 되면 실행 정보를 멤버에게 저장하기 때문입니다. */
+    struct intr_frame if_;
+    if_.ds = if_.es = if_.ss = SEL_UDSEG;	// 사용자 데이터 세그먼트
+    if_.cs = SEL_UCSEG;                     // 사용자 코드 세그먼트
+    if_.eflags = FLAG_IF | FLAG_MBS;        // 인터럽트 플래그 설정
 
     /* 기존 실행 상태 정리 */
     process_cleanup();
 
-	char *parse[64];  // 인자를 저장할 배열. 최대 64개의 인자를 저장할 수 있음.
-	char *token, *save_ptr;  // token은 현재 파싱 중인 인자를 저장하고, save_ptr은 strtok_r의 상태를 저장
-	int count = 0;  // 파싱된 인자의 개수를 셈. 인자 배열에 저장된 총 인자 개수를 추적
+	/** #Project 2: Command Line Parsing - 문자열 분리 */
+    char *ptr, *arg;
+    int argc = 0;
+    char *argv[64];
 
     // 공백을 기준으로 문자열 파싱
-    for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
-        parse[count++] = token;
+    for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr))
+        argv[argc++] = arg;
 
     /* 이진 파일 로드 */
-    success = load(file_name, &_if);  // 이진 파일을 메모리에 로드
+    success = load(file_name, &if_);  // 이진 파일을 메모리에 로드
     // 로드 후 실행할 함수 주소와 스택 포인터 초기화
 
-    argument_stack(parse, count, &_if.rsp);  // 인자를 스택에 올리기
-    _if.R.rdi = count;  					 // argc
-    _if.R.rsi = (char *)_if.rsp + 8;  		 // argv
-
-    hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)_if.rsp, true);  // 스택 덤프 출력
+    argument_stack(argv, argc, &if_);  // 인자를 스택에 올리기
 
     /* 로드 실패 시 종료 */
     palloc_free_page(file_name);  // 파일 이름에 할당된 메모리 해제
@@ -236,46 +302,39 @@ int process_exec(void *f_name)
         return -1;  			  // 로드 실패 시 -1 반환
 
     /* 새 프로세스 실행 */
-    do_iret(&_if);  			  // 새 프로세스 컨텍스트로 전환
+    do_iret(&if_);  			  // 새 프로세스 컨텍스트로 전환
     NOT_REACHED();  			  // 정상적으로 실행되면 이 지점에 오지 않음
 }
 
 
-void argument_stack(char **parse, int count, void **rsp) // 주소를 전달받았으므로 이중 포인터 사용
-{
-    // 프로그램 이름, 인자 문자열 push
-    for (int i = count - 1; i > -1; i--)
-    {
-        for (int j = strlen(parse[i]); j > -1; j--)
-        {
-            (*rsp)--;                      // 스택 주소 감소
-            **(char **)rsp = parse[i][j]; // 주소에 문자 저장
-        }
-        parse[i] = *(char **)rsp; // parse[i]에 현재 rsp의 값 저장해둠(지금 저장한 인자가 시작하는 주소값)
+/** #Project 2: Command Line Parsing - 유저 스택에 파싱된 토큰을 저장하는 함수 */
+void argument_stack(char **argv, int argc, struct intr_frame *if_) {
+    char *arg_addr[100];
+    int argv_len;
+
+    for (int i = argc - 1; i >= 0; i--) {
+        argv_len = strlen(argv[i]) + 1;
+        if_->rsp -= argv_len;
+        memcpy(if_->rsp, argv[i], argv_len);
+        arg_addr[i] = if_->rsp;
     }
 
-    // 정렬 패딩 push
-    int padding = (int)*rsp % 8;
-    for (int i = 0; i < padding; i++)
-    {
-        (*rsp)--;
-        **(uint8_t **)rsp = 0; // rsp 직전까지 값 채움
+    while (if_->rsp % 8)
+        *(uint8_t *)(--if_->rsp) = 0;
+
+    if_->rsp -= 8;
+    memset(if_->rsp, 0, sizeof(char *));
+
+    for (int i = argc - 1; i >= 0; i--) {
+        if_->rsp -= 8;
+        memcpy(if_->rsp, &arg_addr[i], sizeof(char *));
     }
 
-    // 인자 문자열 종료를 나타내는 0 push
-    (*rsp) -= 8;
-    **(char ***)rsp = 0; // char* 타입의 0 추가
+    if_->rsp = if_->rsp - 8;
+    memset(if_->rsp, 0, sizeof(void *));
 
-    // 각 인자 문자열의 주소 push
-    for (int i = count - 1; i > -1; i--)
-    {
-        (*rsp) -= 8; // 다음 주소로 이동
-        **(char ***)rsp = parse[i]; // char* 타입의 주소 추가
-    }
-
-    // return address push
-    (*rsp) -= 8;
-    **(void ***)rsp = 0; // void* 타입의 0 추가
+    if_->R.rdi = argc;
+    if_->R.rsi = if_->rsp + 8;
 }
 
 
@@ -314,7 +373,7 @@ process_exit (void)
     	printf("%s: exit(%d)\n", curr->name, curr->exit_status);
 	}
 
-	
+
 	/* TODO: 프로세스 자원 정리 작업을 이곳에 구현해야 합니다. */
 	process_cleanup ();  // 프로세스와 관련된 자원 정리를 수행합니다.
 }
@@ -452,6 +511,13 @@ static bool load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: open failed\n", file_name);  // 파일 열기 실패
 		goto done;
 	}
+
+	/** #Project 2: System Call - 파일 실행 명시 및 접근 금지 설정  */
+    t->runn_file = file;
+    file_deny_write(file);
+	/** #Project 2: Denying Writes to Executables */
+
+
 
 	/* ELF 헤더 읽기 및 검증 */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -769,3 +835,75 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 #endif /* VM */
+
+thread_t *get_child_process(int pid) {
+    thread_t *curr = thread_current();
+    thread_t *t;
+
+    for (struct list_elem *e = list_begin(&curr->child_list); e != list_end(&curr->child_list); e = list_next(e)) {
+        t = list_entry(e, thread_t, child_elem);
+
+        if (pid == t->tid)
+            return t;
+    }
+
+    return NULL;
+}
+
+/** #Project 2: System Call - 현재 스레드 fdt에 파일 추가 */
+int process_add_file(struct file *f) {
+    thread_t *curr = thread_current();
+    struct file **fdt = curr->fdt;
+
+    if (curr->fd_idx >= FDCOUNT_LIMIT)
+        return -1;
+
+    while (fdt[curr->fd_idx] != NULL)
+        curr->fd_idx++;
+
+    fdt[curr->fd_idx++] = f;
+
+    return curr->fd_idx - 1;
+}
+
+/** #Project 2: System Call - 현재 스레드의 fd번째 파일 정보 얻기 */
+struct file *process_get_file(int fd) {
+    thread_t *curr = thread_current();
+
+    if (fd < 0 || fd >= FDCOUNT_LIMIT)
+        return NULL;
+
+    return curr->fdt[fd];
+}
+
+/** #Project 2: System Call - 현재 스레드의 fdt에서 파일 삭제 */
+int process_close_file(int fd) {
+    thread_t *curr = thread_current();
+
+    if (fd < 0 || fd >= FDCOUNT_LIMIT)
+        return -1;
+
+    curr->fdt[fd] = NULL;
+    return 0;
+}
+
+process_insert_file(int fd, struct file *f) {
+    thread_t *curr = thread_current();
+    struct file **fdt = curr->fdt;
+
+    if (fd < 0 || fd >= FDCOUNT_LIMIT)
+        return -1;
+
+    if (f == STDIN)
+        curr->stdin_count++;
+    else if (f == STDOUT)
+        curr->stdout_count++;
+    else if (f == STDERR)
+        curr->stderr_count++;
+    else
+        f->dup_count++;
+
+    fdt[fd] = f;
+
+    return fd;
+}
