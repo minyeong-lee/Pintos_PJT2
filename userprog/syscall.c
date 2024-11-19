@@ -8,6 +8,7 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include "threads/init.h"
+#include "userprog/process.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -121,20 +122,41 @@ halt () {
 
 void
 exit (int status) {
-	struct thread * thread = NULL;
-	thread = thread_current();
-	char * t_name = thread->name;
+	char * t_name = thread_name();
 	printf("%s: exit(%d)",t_name, status);
 }
 
+/* 현재 프로세스의 복제본인 THREAD_NAME 생성 (새 프로세스) */
 pid_t
 fork (const char *thread_name) {
+	//thd->tf
+	/* thread_create 함수의 매개변수 생성 */
+	// 새 스레드로 전달할 추가 데이터 (초기화나 부모 프로세스와 공유해야 할 데이터 전달)
+	
+	//자식 프로세스가 시작할 때, 부모 프로세스의 상태를 기반으로 초기화하는 함수
+
+
+
+
+
+	thread_create(thread_name, PRI_DEFAULT, );
+	struct thread* td = thread_current();
+	memcpy()
+
 
 }
 
+/* 새 프로세스 실행 */
 int
 exec (const char *cmd_line) {
+	if (cmd_line == NULL)
+		return -1;
+
+	int result = process_exec(cmd_line);
+	if (result == -1)
+		return -1;
 	
+	NOT_REACHED();
 }
 
 
