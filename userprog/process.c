@@ -106,7 +106,8 @@ initd (void *f_name)
 
 이 함수의 목적은 현재 실행중인 프로세스를 복제하여 새로운 스레드(자식 프로세스)를 시작하는 것입니다.
 */
-tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED) {
+tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
+{
     thread_t *curr = thread_current();
 
     struct intr_frame *f = (pg_round_up(rrsp()) - sizeof(struct intr_frame));  // 현재 쓰레드의 if_는 페이지 마지막에 붙어있다.
@@ -193,11 +194,12 @@ __do_fork (void *aux)
 
     /* 1. 부모 프로세스의 인터럽트 프레임을 자식 스레드로 복사합니다. */
     memcpy (&if_, parent_if, sizeof (struct intr_frame));
+	if_.R.rax = 0;
 
     /* 2. 부모의 페이지 테이블을 자식 스레드로 복제합니다. */
     current->pml4 = pml4_create();  // 자식 스레드를 위한 새로운 페이지 테이블 생성
     if (current->pml4 == NULL)
-        goto error;  				// 페이지 테이블 생성 실패 시 오류 처리
+        goto error;  				// 페이지 테이블 생성 실패 시 오류 처리 
 
     process_activate (current);  	// 자식 프로세스를 활성화합니다.
 
