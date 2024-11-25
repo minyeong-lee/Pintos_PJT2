@@ -101,7 +101,6 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 
 			hash_insert(&spt->hash_table, &page->hash_elem);
 			succ = true;
-		}
 	}
 	return succ;
 }
