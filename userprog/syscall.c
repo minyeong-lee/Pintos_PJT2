@@ -1,5 +1,6 @@
-#include "userprog/syscall.h"
+#define USERPROG
 #include <stdio.h>
+#include "userprog/syscall.h"
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -35,20 +36,25 @@ void syscall_handler (struct intr_frame *);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-void
-syscall_init (void) {
-	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
-			((uint64_t)SEL_KCSEG) << 32);
-	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
+/* 시스템 콜 초기화 함수 */
+void syscall_init (void) {
+    // MSR(Model Specific Register) 설정
+    // STAR: 세그먼트 선택자 설정
+    write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
+            ((uint64_t)SEL_KCSEG) << 32);
+    // LSTAR: 시스템 콜 진입점 설정
+    write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
 
-  lock_init(&filesys_lock);
+    // 파일 시스템 동기화를 위한 락 초기화
+    lock_init(&filesys_lock);
 
-	/* The interrupt service rountine should not serve any interrupts
-	 * until the syscall_entry swaps the userland stack to the kernel
-	 * mode stack. Therefore, we masked the FLAG_FL. */
-	write_msr(MSR_SYSCALL_MASK,
-			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+    /* 인터럽트 마스크 설정
+     * syscall_entry가 유저 스택을 커널 모드 스택으로 
+     * 전환할 때까지 인터럽트 처리를 막음 */
+    write_msr(MSR_SYSCALL_MASK,
+            FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
+
 
 /* The main system call interface */
 //! Project 2 - System calls
@@ -58,6 +64,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
   //? 인자 - %rdi, $rsi, %rdx, %r10, %r8, %r9
 
   int sys_number = f->R.rax;
+  // RAX 레지스터에서 시스템 콜 번호 획득
 
   switch (sys_number) {
 
@@ -135,11 +142,9 @@ halt (void) {
 void
 exit (int status) {
   struct thread *curr = thread_current ();
-  curr->exit_status = status;
-
-  printf ("%s: exit(%d)\n", thread_name(), curr->exit_status);
-
-  thread_exit ();
+  curr->exit_status = status; // 종료 상태 설정
+  printf ("%s: exit(%d)\n", thread_name(), curr->exit_status); // 종료 메세지 설정 
+  thread_exit (); //스레드 종료 
 }
 
 static pid_t
@@ -180,21 +185,23 @@ create (const char* file, unsigned initial_size) {
 static int
 open (const char *file) {
   check_addr(file);
-  struct file *f = filesys_open(file);
+  struct file *f = filesys_open(file); 
   if (f == NULL)
     return -1;
 
   struct thread *curr = thread_current();
   struct file **fdt = curr->fd_table;
-
+  // 사용 가능한 파일 디스크립터 찾기 
   while (curr->fd_idx < FD_COUNT_LIMIT && fdt[curr->fd_idx]) {
     // printf(" ############### fd_idx = { %d }\n", curr->fd_idx);
     curr->fd_idx++;
   }
+  // 파일 디스크립터 제한 체크
   if (curr->fd_idx >= FD_COUNT_LIMIT) {
     file_close (f);
     return -1;
   }
+  // 파일 디스크립터 제한 체크 
   fdt[curr->fd_idx] = f;
 
   return curr->fd_idx;

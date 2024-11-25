@@ -4,16 +4,16 @@
 #include "threads/palloc.h"
 
 enum vm_type {
-	/* page not initialized */
+	/* 페이지가 초기화 되지 않았을때 */
 	VM_UNINIT = 0,
-	/* page not related to the file, aka anonymous page */
+	/* 파일과 관련이 없는 페이지 즉 모르는 페이지 */
 	VM_ANON = 1,
-	/* page that realated to the file */
+	/* 파일과 관련있는 페이지  */
 	VM_FILE = 2,
-	/* page that hold the page cache, for project 4 */
+	/* Project4 에 대한 페이지 캐시를 보관하는 페이지  */
 	VM_PAGE_CACHE = 3,
 
-	/* Bit flags to store state */
+	/* 상태를 저장할 비트 플래그 */
 
 	/* Auxillary bit flag marker for store information. You can add more
 	 * markers, until the value is fit in the int. */

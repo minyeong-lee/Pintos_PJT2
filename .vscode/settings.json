@@ -14,6 +14,9 @@
         "*.inc": "c",
         "syscall-nr.h": "c",
         "syscall.h": "c",
-        "interrupt.h": "c"
+        "interrupt.h": "c",
+        "init.h": "c",
+        "stdio.h": "c",
+        "process.h": "c"
     }
 }
