@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "lib/kernel/hash.c"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
