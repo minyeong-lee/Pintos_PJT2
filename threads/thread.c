@@ -361,9 +361,7 @@ thread_name (void) {
 /* Returns the running thread.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
-struct thread *스레드 구조에서 intr_frame을 사용할 수 없습니다.
-* 이는 현재 스레드가 재스케줄링될 때
-* 실행 정보를 멤버에 저장하기 때문입니다.
+struct thread
 thread_current (void) {
 	struct thread *t = running_thread ();
 
