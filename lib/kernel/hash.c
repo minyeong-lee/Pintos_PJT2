@@ -395,7 +395,7 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	list_remove (&e->list_elem);
 }
 
-uint64_t page_hash (const struct hash_elem *e, void *aux)
+unsigned page_hash (const struct hash_elem *e, void *aux)
 {
 	const struct page *p = hash_entry(e, struct page, hash_elem);
 	return hash_bytes(&p->va, sizeof p->va);
