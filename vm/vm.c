@@ -250,7 +250,7 @@ page_hash(const struct hash_elem *p_, void *aux UNUSED)
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
-	hash_init(&spt->hash_table, vm_page_hash, page_less, NULL);
+	hash_init(&spt->hash_table, page_hash, page_less, NULL);
 }
 
 /* d*/
