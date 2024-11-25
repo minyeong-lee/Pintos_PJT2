@@ -97,7 +97,4 @@ uint64_t hash_bytes (const void *, size_t);
 uint64_t hash_string (const char *);
 uint64_t hash_int (int);
 
-uint64_t page_hash (const struct hash_elem *e, void *aux)
-bool page_less (const struct hash_elem *a, const struct hash_elem *b, void *aux)
-
 #endif /* lib/kernel/hash.h */
