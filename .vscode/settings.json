@@ -17,6 +17,8 @@
         "interrupt.h": "c",
         "init.h": "c",
         "stdio.h": "c",
-        "process.h": "c"
-    }
+        "process.h": "c",
+        "malloc.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }
