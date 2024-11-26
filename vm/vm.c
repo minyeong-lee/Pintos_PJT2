@@ -101,6 +101,7 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 
 			hash_insert(&spt->hash_table, &page->hash_elem);
 			succ = true;
+		}
 	}
 	return succ;
 }
@@ -227,24 +228,7 @@ vm_do_claim_page (struct page *page) {
 	}
 	/* 해당 페이지를 물리 메모리에 올려준다.*/
 	return swap_in(page, frame->kva);
-}
-
-/* Returns true if page a precedes page b. */
-bool page_less(const struct hash_elem *a_,
-               const struct hash_elem *b_, void *aux UNUSED)
-{
-    const struct page *a = hash_entry(a_, struct page, hash_elem);
-    const struct page *b = hash_entry(b_, struct page, hash_elem);
-
-    return a->va < b->va;
-}
-
-/* Returns a hash value for page p. */
-unsigned
-page_hash(const struct hash_elem *p_, void *aux UNUSED)
-{
-    const struct page *p = hash_entry(p_, struct page, hash_elem);
-    return hash_bytes(&p->va, sizeof p->va);
+	// roll back
 }
 
 /* Initialize new supplemental page table */
@@ -252,8 +236,6 @@ void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 	hash_init(&spt->hash_table, page_hash, page_less, NULL);
 }
-
-/* d*/
 
 /* Copy supplemental page table from src to dst */
 bool
