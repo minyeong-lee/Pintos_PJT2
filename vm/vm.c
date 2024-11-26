@@ -3,7 +3,6 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
-#include "lib/kernel/hash.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -64,29 +63,10 @@ err:
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
-	struct page *page = malloc(sizeof(struct page));
-	struct hash_elem *e;
-	if (page == NULL)
-	{
-		return NULL;
-	}
-	
-   	 //va에 해당하는 hash_elem 찾기
-	page->va = pg_round_down(va);
-	e = hash_find(&spt->hash_table, &page->hash_elem);
-	
-   	 //있으면 e에 해당하는 페이지 반환
-	if (e != NULL)
-	{
-		struct page *found_page = hash_entry(e, struct page, hash_elem);
-		free(page);
-		return found_page;
-	}
-	else
-	{
-		free(page);
-		return NULL;
-	}
+	struct page *page = NULL;
+	/* TODO: Fill this function. */
+
+	return page;
 }
 
 /* Insert PAGE into spt with validation. */
@@ -94,15 +74,8 @@ bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
 	int succ = false;
+	/* TODO: Fill this function. */
 
-	if (is_user_vaddr(page->va))
-	{
-		if (spt_find_page(spt, page->va) == NULL)
-
-			hash_insert(&spt->hash_table, &page->hash_elem);
-			succ = true;
-		}
-	}
 	return succ;
 }
 
@@ -137,18 +110,9 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-struct frame *frame = (struct frame*)malloc(sizeof(struct frame)); 
+	struct frame *frame = NULL;
 	/* TODO: Fill this function. */
-   	// user_pool 에서 frame 가져오고, kva return해서 frame에 넣어준다.
-	frame->kva = palloc_get_page(PAL_USER);
-	
-	if(frame->kva == NULL){ //frame에서 가용한 page가 없다면
-		free(frame);
-		PANIC("todo");
-	}
 
-	frame->page = NULL; //새 frame을 가져왔으니 page의 멤버를 초기화
-	
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
@@ -187,54 +151,29 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) {
-struct page *page = NULL;
+	struct page *page = NULL;
+	/* TODO: Fill this function */
 
-	/* 물리 프레임과 연결을 할 페이지를 SPT를 통해서 찾아준다.*/
-	page = spt_find_page(&thread_current()->spt, va);
-
-	if (page == NULL)
-		return false;
-	return vm_do_claim_page(page);
+	return vm_do_claim_page (page);
 }
 
 /* Claim the PAGE and set up the mmu. */
 static bool
 vm_do_claim_page (struct page *page) {
-	struct frame *frame = vm_get_frame();
-	if (frame == NULL)
-	{
-		return false;
-	}
+	struct frame *frame = vm_get_frame ();
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	/* 페이지 테이블 항목을 삽입하여 페이지의 VA를 프레임의 PA에 매핑합니다. */
-	/* pml4_get_page는 가상주소를 넣어 해당 물리주소를 찾고 그에 해당하는
-	커널 가상 주소를 반환한다.*/
-	/* pml4_set_page는 사용자 가상 페이지 UPAGE에서 커널 가상 주소 KPAGE로 
-	식별된 물리 프레임에 대한 페이지 맵 레벨 4 PML4에 매핑을 추가한다. */
 
-	//가상 주소와 물리 주소 매핑
-	if (pml4_get_page(thread_current()->pml4, page->va) == NULL)
-	{
-		if (!pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable))
-		{
-			vm_dealloc_page(page);
-			return false;
-		}
-	}
-	/* 해당 페이지를 물리 메모리에 올려준다.*/
-	return swap_in(page, frame->kva);
-	// roll back
+	return swap_in (page, frame->kva);
 }
 
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
-	hash_init(&spt->hash_table, page_hash, page_less, NULL);
 }
 
 /* Copy supplemental page table from src to dst */

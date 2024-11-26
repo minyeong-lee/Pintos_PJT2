@@ -8,7 +8,6 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
-#include "vm/vm.h" 
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
 	list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -18,8 +17,6 @@ static struct hash_elem *find_elem (struct hash *, struct list *,
 		struct hash_elem *);
 static void insert_elem (struct hash *, struct list *, struct hash_elem *);
 static void remove_elem (struct hash *, struct hash_elem *);
-typedef uint64_t hash_hash_func (const struct hash_elem *e, void *aux);
-typedef bool hash_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 static void rehash (struct hash *);
 
 /* Initializes hash table H to compute hash values using HASH and
@@ -394,19 +391,3 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	h->elem_cnt--;
 	list_remove (&e->list_elem);
 }
-
-unsigned page_hash (const struct hash_elem *e, void *aux)
-{
-	const struct page *p = hash_entry(e, struct page, hash_elem);
-	return hash_bytes(&p->va, sizeof p->va);
-}
-
-
-bool page_less (const struct hash_elem *a, const struct hash_elem *b, void *aux)
-{
-	const struct page *pa = hash_entry(a, struct page, hash_elem);
-	const struct page *pb = hash_entry(b, struct page, hash_elem);
-
-	return pa->va < pb->va;
-}
-
