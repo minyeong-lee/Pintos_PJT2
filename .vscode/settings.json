@@ -19,7 +19,8 @@
         "stdio.h": "c",
         "process.h": "c",
         "malloc.h": "c",
-        "hash.h": "c"
+        "hash.h": "c",
+        "loader.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

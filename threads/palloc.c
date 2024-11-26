@@ -242,7 +242,7 @@ palloc_init (void) {
 	extern char _end;
 	struct area base_mem = { .size = 0 };
 	struct area ext_mem = { .size = 0 };
-
+	
 	resolve_area_info (&base_mem, &ext_mem);
 	printf ("Pintos booting with: \n");
 	printf ("\tbase_mem: 0x%llx ~ 0x%llx (Usable: %'llu kB)\n",
