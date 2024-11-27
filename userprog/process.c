@@ -18,12 +18,9 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
-#ifdef USERPROG
-#include "threads/synch.h"
-#include "userprog/syscall.h"
-#endif
 #ifdef VM
 #include "vm/vm.h"
+#include "userprog/syscall.h"
 #endif
 
 #define ARG_MAX 128                           //* Project 2 (args_passing) : strtok_r로 잘라줄 최대값
