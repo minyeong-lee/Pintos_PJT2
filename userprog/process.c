@@ -711,9 +711,9 @@ install_page (void *upage, void *kpage, bool writable) {
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-bool
-lazy_load_segment (struct page *page, void *aux) {
-/* TODO: Load the segment from the file */
+bool lazy_load_segment(struct page *page, void *aux)
+{
+	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
 
@@ -729,6 +729,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	}
 	// 3) 다 읽은 지점부터 zero_bytes만큼 0으로 채운다.
 	memset(page->frame->kva + lazy_load_arg->read_bytes, 0, lazy_load_arg->zero_bytes);
+	// free(lazy_load_arg); // 🚨 Todo : 어디서 반환하지?
 
 	return true;
 }
